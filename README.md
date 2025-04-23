@@ -1,4 +1,4 @@
-# SUI Wallet & Faucet Bot
+# SUI Wallet Generator
 
 A comprehensive toolkit for generating SUI blockchain wallets and automating test token requests from the SUI testnet faucet.
 
