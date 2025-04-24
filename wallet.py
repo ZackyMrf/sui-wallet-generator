@@ -79,8 +79,9 @@ def generate_address(seed):
     
     return (skey_hex, vkey_hex, address, mnemonic)
 
-def save_wallet_info(wallet_info, batch_mode=False):
+def save_wallet_info(wallet_info, batch_mode=False, excel_export=False):
     """Save wallet info to the specified files"""
+    # Original saving code remains the same
     if batch_mode:
         # Create files or clear them if they already exist
         with open("wallet.txt", "w") as f:
@@ -115,6 +116,11 @@ def save_wallet_info(wallet_info, batch_mode=False):
         print(f"- Private keys saved to privatekeys.txt")
         print(f"- Mnemonics saved to mnemonic.txt")
         print(f"- Complete wallet info saved to SuiWallet.txt")
+        
+        # Export to Excel if requested
+        if excel_export:
+            export_to_excel(wallet_info, batch_mode=True)
+        
         return
     else:
         # Single wallet - append to existing files
@@ -146,6 +152,10 @@ def save_wallet_info(wallet_info, batch_mode=False):
         print("- Private key added to privatekeys.txt")
         print("- Mnemonic added to mnemonic.txt")
         print("- Complete wallet info added to SuiWallet.txt")
+        
+        # Export to Excel if requested
+        if excel_export:
+            export_to_excel(wallet, batch_mode=False)
 
 def generate_multiple_wallets(count, method="random", passphrase=None):
     """Generate multiple wallets at once"""
@@ -179,12 +189,72 @@ def generate_multiple_wallets(count, method="random", passphrase=None):
     
     return wallets
 
+def export_to_excel(wallet_info, batch_mode=False):
+    """Export wallet information to Excel file"""
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        
+        print("Exporting wallets to Excel...")
+        
+        # Create a new workbook and select the active worksheet
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "SUI Wallets"
+        
+        # Define styles
+        header_font = Font(name='Arial', size=12, bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="2B5DCD", end_color="2B5DCD", fill_type="solid")  # SUI blue color
+        
+        # Add header
+        headers = ["Address", "Private Key", "Mnemonic Phrase"]
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_num)
+            cell.value = header
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+        
+        # Add wallet data
+        wallets_to_add = wallet_info if batch_mode else [wallet_info]
+        
+        for row_num, wallet in enumerate(wallets_to_add, 2):  # Start from row 2 (after header)
+            ws.cell(row=row_num, column=1).value = wallet['address']
+            ws.cell(row=row_num, column=2).value = wallet['private_key']
+            ws.cell(row=row_num, column=3).value = wallet['mnemonic']
+        
+        # Adjust column widths
+        ws.column_dimensions['A'].width = 45  # Address
+        ws.column_dimensions['B'].width = 70  # Private Key
+        ws.column_dimensions['C'].width = 90  # Mnemonic
+        
+        # Add security warning
+        warning_row = len(wallets_to_add) + 3
+        warning_cell = ws.cell(row=warning_row, column=1)
+        warning_cell.value = "⚠️ SECURITY WARNING: Keep your private keys and mnemonics secure! Never share them with anyone!"
+        warning_cell.font = Font(name='Arial', size=12, bold=True, color="FF0000")
+        ws.merge_cells(start_row=warning_row, start_column=1, end_row=warning_row, end_column=3)
+        
+        # Save the workbook
+        excel_filename = "SuiWallets.xlsx"
+        wb.save(excel_filename)
+        print(f"Wallet information exported to {excel_filename}")
+        return True
+    
+    except ImportError:
+        print("Excel export requires openpyxl package. Install with: pip install openpyxl")
+        return False
+    except Exception as e:
+        print(f"Error exporting to Excel: {e}")
+        return False
+
 def main():
     # Check if script is run with command line arguments
     parser = argparse.ArgumentParser(description="SUI Wallet Generator")
     parser.add_argument('--count', type=int, help='Number of wallets to generate (batch mode)')
     parser.add_argument('--random', action='store_true', help='Use random seed generation (for batch mode)')
     parser.add_argument('--passphrase', type=str, help='Use passphrase seed generation (for batch mode)')
+    parser.add_argument('--excel', action='store_true', help='Export wallet information to Excel file')
     
     args = parser.parse_args()
     
@@ -200,7 +270,10 @@ def main():
             passphrase = getpass.getpass("Enter a base passphrase (will not be displayed): ")
         
         wallets = generate_multiple_wallets(args.count, method, passphrase)
-        save_wallet_info(wallets, batch_mode=True)
+        excel_export = args.excel
+        if excel_export:
+            print("Excel export enabled via command line")
+        save_wallet_info(wallets, batch_mode=True, excel_export=excel_export)
         return
 
     # Interactive mode
@@ -238,7 +311,12 @@ def main():
                 return
                 
             wallets = generate_multiple_wallets(count, method, passphrase)
-            save_wallet_info(wallets, batch_mode=True)
+            
+            # Ask about Excel export in interactive mode
+            excel_choice = input("Do you want to export wallet data to Excel? (yes/no): ").lower()
+            excel_export = excel_choice == "yes"
+            
+            save_wallet_info(wallets, batch_mode=True, excel_export=excel_export)
             return
             
         except ValueError:
@@ -288,7 +366,9 @@ def main():
         
         save_option = input("\nDo you want to save the wallet information? (yes/no): ").lower()
         if save_option == "yes":
-            save_wallet_info(wallet_info)
+            excel_option = input("Export to Excel file? (yes/no): ").lower()
+            excel_export = excel_option == "yes"
+            save_wallet_info(wallet_info, excel_export=excel_export)
         
     except Exception as e:
         print(f"An error occurred: {e}")
